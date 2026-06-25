@@ -1,0 +1,5 @@
+{
+    "API_KEY": "<your key>",
+    "OPENAI_API_BASE": "<your path>",
+    "TAVILY_API_KEY": "<your tavily key>"
+}
