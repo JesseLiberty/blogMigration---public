@@ -39,16 +39,40 @@ public class BlogWorkflow(
             .WithOutputFrom(reviewerExecutor)
             .Build();
 
-        Run run = await InProcessExecution.RunAsync(workflow, state);
+        // Stream execution instead of running to completion in one shot. The
+        // topology is identical to before (proven terminating, MAF-Doctor grade A);
+        // streaming simply surfaces each executor's lifecycle as it happens, giving
+        // live progress and replacing the scattered Console.WriteLine tracing that
+        // previously lived inside the node classes. The final ResearchState is
+        // captured from the WorkflowOutputEvent emitted by the reviewer.
+        StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, state);
 
-        foreach (WorkflowEvent evt in run.NewEvents)
+        ResearchState? result = null;
+
+        await foreach (WorkflowEvent evt in run.WatchStreamAsync())
         {
-            if (evt is WorkflowOutputEvent { Data: ResearchState result })
+            switch (evt)
             {
-                return result;
+                case ExecutorInvokedEvent invoked:
+                    Console.WriteLine($"[workflow] → {invoked.ExecutorId} started");
+                    break;
+
+                case ExecutorCompletedEvent completed:
+                    Console.WriteLine($"[workflow] ✓ {completed.ExecutorId} completed");
+                    break;
+
+                case ExecutorFailedEvent failed:
+                    Console.WriteLine($"[workflow] ✗ {failed.ExecutorId} failed: {(failed.Data as Exception)?.Message}");
+                    break;
+
+                case WorkflowOutputEvent { Data: ResearchState finalState }:
+                    // The reviewer yielded the final, approved (or revision-capped) state.
+                    result = finalState;
+                    break;
             }
         }
 
-        return state;
+        // Fall back to the input state only if no output event was ever produced.
+        return result ?? state;
     }
 }

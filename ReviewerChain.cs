@@ -1,10 +1,38 @@
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace BlogMigration;
 
-/// <summary>Creates the reviewer chain.</summary>
-public class ReviewerChain(IChatClient llm, ChatOptions chatOptions) : IReviewerChain
+/// <summary>
+/// Reviewer chain backed by a Microsoft Agent Framework <see cref="ChatClientAgent"/>.
+///
+/// MAF idiom change: the evaluation role lives in the agent's Instructions; only
+/// the task + draft are sent as the per-turn user message.
+///
+/// Correctness fix: the previous version's <c>catch</c> returned
+/// "APPROVED - Error in review..." — meaning any transient LLM/transport failure
+/// would silently approve an unreviewed draft. It now returns a revision request
+/// instead, so a failed review re-loops to the author (bounded by
+/// <see cref="ResearchState.MaxRevisions"/>) rather than shipping unchecked content.
+/// </summary>
+public class ReviewerChain : IReviewerChain
 {
+    private readonly ChatClientAgent _agent;
+
+    public ReviewerChain(IChatClient llm, ChatOptions chatOptions)
+    {
+        _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
+        {
+            Name = "Reviewer",
+            ChatOptions = new ChatOptions
+            {
+                Instructions = Prompts.ReviewerInstructions,
+                Temperature = chatOptions.Temperature,
+                MaxOutputTokens = chatOptions.MaxOutputTokens,
+            },
+        });
+    }
+
     public async Task<string> InvokeAsync(ResearchState state)
     {
         string draft = state.Draft;
@@ -20,20 +48,27 @@ public class ReviewerChain(IChatClient llm, ChatOptions chatOptions) : IReviewer
             return "APPROVED - Maximum revisions reached. The report is satisfactory.";
         }
 
-        string prompt = Prompts.ReviewerPromptTemplate
-            .Replace("{main_task}", state.MainTask)
-            .Replace("{draft}", draft);
+        // Per-turn input only — the evaluation criteria are on the agent.
+        string message = $"""
+            Main Task: {state.MainTask}
+
+            Draft to Review:
+            {draft}
+            """;
 
         try
         {
-            ChatResponse response = await llm.GetResponseAsync(prompt, chatOptions);
+            AgentResponse response = await _agent.RunAsync(message);
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : "APPROVED";
         }
         catch (Exception e)
         {
+            // Do NOT approve on failure — that would ship an unreviewed draft.
+            // Returning feedback (not "APPROVED") routes back to the author for
+            // another attempt; the revision cap still guarantees termination.
             Console.WriteLine($"Review error: {e.Message}");
-            return "APPROVED - Error in review, proceeding with current draft.";
+            return "Review could not be completed due to a transient error. Please revise and resubmit the draft.";
         }
     }
 

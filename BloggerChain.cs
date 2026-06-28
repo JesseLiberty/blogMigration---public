@@ -1,11 +1,50 @@
 using System.Text.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace BlogMigration;
 
-/// <summary>Creates the blogger decision chain.</summary>
-public class BloggerChain(IChatClient llm, ChatOptions chatOptions) : IBloggerChain
+/// <summary>
+/// Blogger decision chain.
+///
+/// MAF idiom change: the LLM fallback used to ask the model for raw JSON, then
+/// manually strip ```-fences and call <c>JsonSerializer.Deserialize</c>. That is
+/// now replaced by MAF structured output — <c>RunAsync&lt;BloggerDecision&gt;</c>
+/// returns a typed, schema-validated <see cref="BloggerDecision"/> directly.
+///
+/// Routing note: the actual control flow is owned by the workflow edges in
+/// <see cref="BlogWorkflow"/> (Blogger → Researcher → Author → Reviewer with a
+/// bounded revision loop). The <c>NextStep</c> this class computes is advisory;
+/// its still-meaningful output is <c>CurrentSubTask</c>, which seeds the
+/// researcher. The deterministic rules below are kept because they faithfully
+/// preserve the original LangGraph decision logic and avoid an LLM call in the
+/// common cases.
+/// </summary>
+public class BloggerChain : IBloggerChain
 {
+    // Built once and reused. Holds the static Blogger instructions; the volatile
+    // state is passed per-turn as the user message.
+    private readonly ChatClientAgent _agent;
+
+    // Web-style options are sufficient: BloggerDecision carries explicit
+    // [JsonPropertyName] attributes (next_step / task_description) that drive the
+    // generated schema regardless of naming policy.
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+
+    public BloggerChain(IChatClient llm, ChatOptions chatOptions)
+    {
+        _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
+        {
+            Name = "Blogger",
+            ChatOptions = new ChatOptions
+            {
+                Instructions = Prompts.BloggerInstructions,
+                Temperature = chatOptions.Temperature,
+                MaxOutputTokens = chatOptions.MaxOutputTokens,
+            },
+        });
+    }
+
     public async Task<BloggerDecision> InvokeAsync(ResearchState state)
     {
         List<string> research = state.ResearchFindings;
@@ -52,30 +91,24 @@ public class BloggerChain(IChatClient llm, ChatOptions chatOptions) : IBloggerCh
             return new BloggerDecision("END", "Maximum revisions reached! Finalizing report");
         }
 
-        // LLM decision as fallback
-        string prompt = Prompts.BloggerPromptTemplate
-            .Replace("{main_task}", state.MainTask)
-            .Replace("{research_findings}", researchText)
-            .Replace("{draft}", string.IsNullOrEmpty(state.Draft) ? "No draft yet." : state.Draft)
-            .Replace("{review_notes}", string.IsNullOrEmpty(review) ? "No review yet." : review)
-            .Replace("{revision_number}", revision.ToString());
+        // LLM decision as fallback. The dynamic state is the user message; the
+        // static role lives in the agent's Instructions. MAF structured output
+        // hands back a typed BloggerDecision — no fenced-block cleanup, no manual
+        // JsonSerializer.Deserialize.
+        string stateSummary = $"""
+            Current Task: {state.MainTask}
+            Research Findings: {researchText}
+            Blog Draft: {(string.IsNullOrEmpty(state.Draft) ? "No draft yet." : state.Draft)}
+            Reviewer Feedback: {(string.IsNullOrEmpty(review) ? "No review yet." : review)}
+            Revision Number: {revision}
+            """;
 
         try
         {
-            ChatResponse response = await llm.GetResponseAsync(prompt, chatOptions);
-            string content = response.Text;
+            AgentResponse<BloggerDecision> response =
+                await _agent.RunAsync<BloggerDecision>(stateSummary, serializerOptions: _jsonOptions);
 
-            // Try to parse JSON
-            string text = content.Trim();
-            if (text.StartsWith("```"))
-            {
-                IEnumerable<string> lines = text.Split('\n').Where(l => !l.TrimStart().StartsWith("```"));
-                text = string.Join("\n", lines);
-            }
-            text = text.Trim();
-
-            BloggerDecision? decision = JsonSerializer.Deserialize<BloggerDecision>(text);
-
+            BloggerDecision decision = response.Result;
             if (decision is not null && !string.IsNullOrEmpty(decision.NextStep))
             {
                 return decision;
@@ -83,7 +116,7 @@ public class BloggerChain(IChatClient llm, ChatOptions chatOptions) : IBloggerCh
         }
         catch (Exception e)
         {
-            Console.WriteLine($"LLM parsing error: {e.Message}");
+            Console.WriteLine($"LLM decision error: {e.Message}");
         }
 
         // Final fallback - continue with author
