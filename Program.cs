@@ -79,10 +79,13 @@ var authorChain = new AuthorChain(llm, chatOptions);
 var reviewerChain = new ReviewerChain(llm, chatOptions);
 var app = new BlogWorkflow(bloggerChain, researcherAgent, authorChain, reviewerChain);
 
-// Run the workflow for a sample topic
+Console.Write("Enter your topic: ");
+string topic = Console.ReadLine() ?? string.Empty;
+
+// Run the workflow for the entered topic
 var initialState = new ResearchState
 {
-    MainTask = "use of multiagents in writing a C# application"
+    MainTask = topic
 };
 
 ResearchState result = await app.RunAsync(initialState);
