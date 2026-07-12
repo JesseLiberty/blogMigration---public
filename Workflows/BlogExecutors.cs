@@ -7,7 +7,7 @@ namespace BlogMigration;
 // ValueTask<ResearchState> auto-routes the returned state to downstream edges.
 
 /// <summary>Entry executor: lets the blogger plan the task and seed the sub-task.</summary>
-internal sealed partial class BloggerExecutor(IBloggerChain blogger) : Executor("Blogger")
+internal sealed partial class BloggerExecutor(IBloggerAgent blogger) : Executor("Blogger")
 {
     [MessageHandler]
     private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
@@ -23,7 +23,7 @@ internal sealed partial class ResearcherExecutor(IResearcherAgent researcher) : 
 }
 
 /// <summary>Writes or revises the draft (increments the revision counter).</summary>
-internal sealed partial class AuthorExecutor(IAuthorChain author) : Executor("Author")
+internal sealed partial class AuthorExecutor(IAuthorAgent author) : Executor("Author")
 {
     [MessageHandler]
     private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
@@ -34,7 +34,7 @@ internal sealed partial class AuthorExecutor(IAuthorChain author) : Executor("Au
 /// Reviews the draft and records approval / revision notes. Acts as the terminal
 /// output node: when no further revision is needed it yields the final state.
 /// </summary>
-internal sealed partial class ReviewerExecutor(IReviewerChain reviewer) : Executor("Reviewer")
+internal sealed partial class ReviewerExecutor(IReviewerAgent reviewer) : Executor("Reviewer")
 {
     [MessageHandler]
     private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)

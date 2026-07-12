@@ -1,6 +1,6 @@
 namespace BlogMigration;
 
-public interface IBloggerChain
+public interface IBloggerAgent
 {
     Task<BloggerDecision> InvokeAsync(ResearchState state);
 

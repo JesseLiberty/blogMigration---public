@@ -1,6 +1,6 @@
 namespace BlogMigration;
 
-public interface IAuthorChain
+public interface IAuthorAgent
 {
     Task<string> InvokeAsync(ResearchState state);
 

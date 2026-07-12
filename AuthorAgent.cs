@@ -11,11 +11,11 @@ namespace BlogMigration;
 /// is sent as the per-turn user message — replacing the previous
 /// <c>string.Replace("{token}", ...)</c> templating against the raw IChatClient.
 /// </summary>
-public class AuthorChain : IAuthorChain
+public class AuthorAgent : IAuthorAgent
 {
     private readonly ChatClientAgent _agent;
 
-    public AuthorChain(IChatClient llm, ChatOptions chatOptions)
+    public AuthorAgent(IChatClient llm, ChatOptions chatOptions)
     {
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {

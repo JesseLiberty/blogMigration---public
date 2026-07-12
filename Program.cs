@@ -73,11 +73,11 @@ AIFunction tavilyTool = AIFunctionFactory.Create(
     description: "A search engine optimized for comprehensive, accurate, and trusted results.");
 
 // Creating a callable object
-var bloggerChain = new BloggerChain(llm, chatOptions);
+var bloggerAgent = new BloggerAgent(llm, chatOptions);
 var researcherAgent = new ResearcherAgent(llm, chatOptions, tavilyTool);
-var authorChain = new AuthorChain(llm, chatOptions);
-var reviewerChain = new ReviewerChain(llm, chatOptions);
-var app = new BlogWorkflow(bloggerChain, researcherAgent, authorChain, reviewerChain);
+var authorAgent = new AuthorAgent(llm, chatOptions);
+var reviewerAgent = new ReviewerAgent(llm, chatOptions);
+var app = new BlogWorkflow(bloggerAgent, researcherAgent, authorAgent, reviewerAgent);
 
 Console.Write("Enter your topic: ");
 string topic = Console.ReadLine() ?? string.Empty;

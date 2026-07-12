@@ -16,10 +16,10 @@ namespace BlogMigration;
 /// reviewer never returns "APPROVED".
 /// </summary>
 public class BlogWorkflow(
-    IBloggerChain blogger,
+    IBloggerAgent blogger,
     IResearcherAgent researcher,
-    IAuthorChain author,
-    IReviewerChain reviewer) : IBlogWorkflow
+    IAuthorAgent author,
+    IReviewerAgent reviewer) : IBlogWorkflow
 {
     public async Task<ResearchState> RunAsync(ResearchState state)
     {

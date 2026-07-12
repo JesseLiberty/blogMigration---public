@@ -20,7 +20,7 @@ namespace BlogMigration;
 /// preserve the original LangGraph decision logic and avoid an LLM call in the
 /// common cases.
 /// </summary>
-public class BloggerChain : IBloggerChain
+public class BloggerAgent : IBloggerAgent
 {
     // Built once and reused. Holds the static Blogger instructions; the volatile
     // state is passed per-turn as the user message.
@@ -31,7 +31,7 @@ public class BloggerChain : IBloggerChain
     // generated schema regardless of naming policy.
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public BloggerChain(IChatClient llm, ChatOptions chatOptions)
+    public BloggerAgent(IChatClient llm, ChatOptions chatOptions)
     {
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {

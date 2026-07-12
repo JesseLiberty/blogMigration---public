@@ -1,6 +1,6 @@
 namespace BlogMigration;
 
-public interface IReviewerChain
+public interface IReviewerAgent
 {
     Task<string> InvokeAsync(ResearchState state);
 

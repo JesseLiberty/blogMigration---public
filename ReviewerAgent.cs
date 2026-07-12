@@ -15,11 +15,11 @@ namespace BlogMigration;
 /// instead, so a failed review re-loops to the author (bounded by
 /// <see cref="ResearchState.MaxRevisions"/>) rather than shipping unchecked content.
 /// </summary>
-public class ReviewerChain : IReviewerChain
+public class ReviewerAgent : IReviewerAgent
 {
     private readonly ChatClientAgent _agent;
 
-    public ReviewerChain(IChatClient llm, ChatOptions chatOptions)
+    public ReviewerAgent(IChatClient llm, ChatOptions chatOptions)
     {
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
