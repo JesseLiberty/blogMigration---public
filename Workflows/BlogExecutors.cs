@@ -1,6 +1,6 @@
 using Microsoft.Agents.AI.Workflows;
 
-namespace BlogMigration;
+namespace BlogWriter;
 
 // MAF workflow executors. Each wraps one of the existing "node" chains so the
 // tested business logic is reused unchanged. A [MessageHandler] returning

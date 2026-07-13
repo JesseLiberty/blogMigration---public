@@ -1,7 +1,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace BlogMigration;
+namespace BlogWriter;
 
 /// <summary>
 /// Reviewer chain backed by a Microsoft Agent Framework <see cref="ChatClientAgent"/>.

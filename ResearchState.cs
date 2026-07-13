@@ -1,4 +1,4 @@
-namespace BlogMigration;
+namespace BlogWriter;
 
 /// <summary>State for the research workflow.</summary>
 public class ResearchState

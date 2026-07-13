@@ -1,4 +1,4 @@
-namespace BlogMigration;
+namespace BlogWriter;
 
 /// <summary>
 /// Prompt library for the blog-creation agents.

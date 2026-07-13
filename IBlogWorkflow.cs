@@ -1,4 +1,4 @@
-namespace BlogMigration;
+namespace BlogWriter;
 
 public interface IBlogWorkflow
 {

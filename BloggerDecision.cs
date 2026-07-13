@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace BlogMigration;
+namespace BlogWriter;
 
 public record BloggerDecision(
     [property: JsonPropertyName("next_step")] string NextStep,

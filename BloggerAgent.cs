@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace BlogMigration;
+namespace BlogWriter;
 
 /// <summary>
 /// Blogger decision chain.

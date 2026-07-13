@@ -1,6 +1,6 @@
 using Microsoft.Agents.AI.Workflows;
 
-namespace BlogMigration;
+namespace BlogWriter;
 
 /// <summary>
 /// Blog creation workflow built on the Microsoft Agent Framework workflow engine.
