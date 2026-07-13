@@ -4,12 +4,10 @@ using Microsoft.Extensions.AI;
 namespace BlogWriter;
 
 /// <summary>
-/// Author chain backed by a Microsoft Agent Framework <see cref="ChatClientAgent"/>.
+/// Generates and revises blog drafts using a <see cref="ChatClientAgent"/>.
 ///
-/// MAF idiom change: the writing role now lives in the agent's Instructions
-/// (set once), and only the volatile state (task, findings, draft, review notes)
-/// is sent as the per-turn user message — replacing the previous
-/// <c>string.Replace("{token}", ...)</c> templating against the raw IChatClient.
+/// The agent receives the main task, research findings, current draft, and
+/// review notes, then returns draft content for the author stage.
 /// </summary>
 public class AuthorAgent : IAuthorAgent
 {

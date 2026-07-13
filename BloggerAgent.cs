@@ -5,20 +5,11 @@ using Microsoft.Extensions.AI;
 namespace BlogWriter;
 
 /// <summary>
-/// Blogger decision chain.
+/// Determines the next workflow action and subtask based on the current
+/// <see cref="ResearchState"/>.
 ///
-/// MAF idiom change: the LLM fallback used to ask the model for raw JSON, then
-/// manually strip ```-fences and call <c>JsonSerializer.Deserialize</c>. That is
-/// now replaced by MAF structured output — <c>RunAsync&lt;BloggerDecision&gt;</c>
-/// returns a typed, schema-validated <see cref="BloggerDecision"/> directly.
-///
-/// Routing note: the actual control flow is owned by the workflow edges in
-/// <see cref="BlogWorkflow"/> (Blogger → Researcher → Author → Reviewer with a
-/// bounded revision loop). The <c>NextStep</c> this class computes is advisory;
-/// its still-meaningful output is <c>CurrentSubTask</c>, which seeds the
-/// researcher. The deterministic rules below are kept because they faithfully
-/// preserve the original LangGraph decision logic and avoid an LLM call in the
-/// common cases.
+/// The agent applies deterministic routing rules first, then uses structured
+/// model output as fallback to produce a typed <see cref="BloggerDecision"/>.
 /// </summary>
 public class BloggerAgent : IBloggerAgent
 {

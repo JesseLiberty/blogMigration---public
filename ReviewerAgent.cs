@@ -4,16 +4,11 @@ using Microsoft.Extensions.AI;
 namespace BlogWriter;
 
 /// <summary>
-/// Reviewer chain backed by a Microsoft Agent Framework <see cref="ChatClientAgent"/>.
+/// Reviews draft content with a <see cref="ChatClientAgent"/> and returns either
+/// approval or revision feedback.
 ///
-/// MAF idiom change: the evaluation role lives in the agent's Instructions; only
-/// the task + draft are sent as the per-turn user message.
-///
-/// Correctness fix: the previous version's <c>catch</c> returned
-/// "APPROVED - Error in review..." — meaning any transient LLM/transport failure
-/// would silently approve an unreviewed draft. It now returns a revision request
-/// instead, so a failed review re-loops to the author (bounded by
-/// <see cref="ResearchState.MaxRevisions"/>) rather than shipping unchecked content.
+/// The review result drives whether the workflow ends or routes back to the
+/// author for another iteration.
 /// </summary>
 public class ReviewerAgent : IReviewerAgent
 {

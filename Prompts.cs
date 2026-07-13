@@ -3,23 +3,14 @@ namespace BlogWriter;
 /// <summary>
 /// Prompt library for the blog-creation agents.
 ///
-/// MAF idiom change (was: one big template per node mixing role + data):
-/// each agent now has a *static* INSTRUCTIONS string (its system prompt / role)
-/// that is set once on the <c>ChatClientAgent</c>, while the *dynamic* state
-/// (task, findings, draft, review notes) is passed per-turn as the user message.
-/// Separating the durable role from the volatile input is the recommended
-/// Microsoft Agent Framework pattern: it keeps the system prompt cacheable,
-/// lets the model treat instructions with higher priority than user input,
-/// and removes the brittle <c>string.Replace("{token}", ...)</c> templating.
+/// Contains the instruction text used by the blogger, researcher, author, and
+/// reviewer stages.
 /// </summary>
 public static class Prompts
 {
     /// <summary>
-    /// Blogger system prompt. The concrete state is supplied as the user message;
-    /// the decision is returned via MAF structured output (typed
-    /// <see cref="BloggerDecision"/>), so this prompt no longer needs to describe
-    /// the exact JSON shape or beg the model for "no extra text" — the schema is
-    /// enforced by the framework.
+    /// Blogger system prompt. The current workflow state is provided in the user
+    /// message, and the result maps to <see cref="BloggerDecision"/>.
     /// </summary>
     public const string BloggerInstructions = """
 You are a blogger managing a blog post creation workflow.
@@ -39,10 +30,8 @@ Return the next step and a brief task description.
 """;
 
     /// <summary>
-    /// Researcher system prompt. The topic to research is supplied as the user
-    /// message. The Tavily web-search tool is attached to the agent, so the model
-    /// itself decides when to call it and then summarises the results — there is
-    /// no longer any hand-written search-call + JSON-parsing orchestration.
+    /// Researcher system prompt. The topic is provided in the user message, and
+    /// the agent can use the configured web-search tool to gather findings.
     /// </summary>
     public const string ResearcherInstructions = """
 You are a researcher for a technical blog

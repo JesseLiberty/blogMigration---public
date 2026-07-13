@@ -4,16 +4,11 @@ using Microsoft.Extensions.AI;
 namespace BlogWriter;
 
 /// <summary>
-/// Researcher backed by a Microsoft Agent Framework <see cref="ChatClientAgent"/>.
+/// Performs research tasks with a <see cref="ChatClientAgent"/> and returns
+/// concise findings.
 ///
-/// MAF idiom change: previously this class manually invoked the Tavily tool,
-/// hand-parsed the JSON response, then made a SECOND LLM call to summarise it.
-/// Now the Tavily function is registered as a *tool on the agent*, so the model
-/// itself decides when to search and produces the summary in a single agent run.
-/// This requires the underlying <see cref="IChatClient"/> to have
-/// function-invocation middleware enabled (wired in <c>Program.cs</c> via
-/// <c>UseFunctionInvocation()</c>), which actually executes the tool calls the
-/// model requests.
+/// The agent can call the configured Tavily tool during execution and summarize
+/// results for use in later drafting stages.
 /// </summary>
 public class ResearcherAgent : IResearcherAgent
 {

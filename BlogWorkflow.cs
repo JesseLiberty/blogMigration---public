@@ -3,17 +3,12 @@ using Microsoft.Agents.AI.Workflows;
 namespace BlogWriter;
 
 /// <summary>
-/// Blog creation workflow built on the Microsoft Agent Framework workflow engine.
+/// Orchestrates the blog-writing pipeline with workflow stages for planning,
+/// research, drafting, and review.
 ///
-/// Topology (faithful to the original LangGraph StateGraph):
-///   Blogger → Researcher → Author → Reviewer
-///   Reviewer ⇄ Author  (bounded revision loop)
-///   Reviewer → Output  (on approval or revision cap)
-///
-/// The revision loop is bounded by <see cref="ResearchState.MaxRevisions"/>: the
-/// loop-back edge only fires while the draft is unapproved AND the revision count
-/// is below the cap, so the workflow is guaranteed to terminate even if the
-/// reviewer never returns "APPROVED".
+/// Execution flows Blogger → Researcher → Author → Reviewer, with a bounded
+/// reviewer-to-author revision loop controlled by
+/// <see cref="ResearchState.MaxRevisions"/>.
 /// </summary>
 public class BlogWorkflow(
     IBloggerAgent blogger,
