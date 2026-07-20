@@ -4,7 +4,10 @@
       "type": "stdio",
       "command": "maf-doctor",
       "args": [],
-      "env": {}
+      "env": {
+        "MAF_DOCTOR_INIT_VERSION": "1.13.0",
+        "MAF_DOCTOR_WORKSPACE_ROOTS": "C:\\Users\\jesseliberty\\ai\\.net\\blogWriter"
+      }
     }
   }
 }
