@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Agents.AI.Workflows;
 
 namespace BlogWriter;
@@ -16,8 +17,15 @@ public class BlogWorkflow(
     IAuthorAgent author,
     IReviewerAgent reviewer) : IBlogWorkflow
 {
+    // Emits the root span for a workflow run. Activated by the ActivityListener
+    // registered in Program.cs (or an OpenTelemetry TracerProvider).
+    private static readonly ActivitySource s_activitySource = new("BlogWriter.Workflow");
+
     public async Task<ResearchState> RunAsync(ResearchState state)
     {
+        using Activity? activity = s_activitySource.StartActivity("Workflow.Run");
+        activity?.SetTag("blog.topic", state.MainTask);
+
         var bloggerExecutor = new BloggerExecutor(blogger);
         var researcherExecutor = new ResearcherExecutor(researcher);
         var authorExecutor = new AuthorExecutor(author);

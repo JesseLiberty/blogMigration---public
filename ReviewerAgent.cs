@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace BlogWriter;
 
@@ -14,8 +16,16 @@ public class ReviewerAgent : IReviewerAgent
 {
     private readonly ChatClientAgent _agent;
 
-    public ReviewerAgent(IChatClient llm, ChatOptions chatOptions)
+    // Emits a span per review. Activated by the ActivityListener registered in
+    // Program.cs (or an OpenTelemetry TracerProvider).
+    private static readonly ActivitySource s_activitySource = new("BlogWriter.ReviewerAgent");
+
+    private readonly ILogger<ReviewerAgent> _logger;
+
+    public ReviewerAgent(IChatClient llm, ChatOptions chatOptions, ILogger<ReviewerAgent> logger)
     {
+        _logger = logger;
+
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
             Name = "Reviewer",
@@ -26,10 +36,14 @@ public class ReviewerAgent : IReviewerAgent
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
         });
+        _logger.LogInformation("ReviewerAgent initialized.");   
     }
 
     public async Task<string> InvokeAsync(ResearchState state)
     {
+        using Activity? activity = s_activitySource.StartActivity("Reviewer.Invoke");
+        activity?.SetTag("blog.revision", state.RevisionNumber);
+
         string draft = state.Draft;
         int revisionNum = state.RevisionNumber;
 

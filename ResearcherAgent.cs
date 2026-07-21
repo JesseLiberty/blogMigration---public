@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace BlogWriter;
 
@@ -17,8 +19,16 @@ public class ResearcherAgent : IResearcherAgent
     // per-call behaviour while gaining tool-calling for free.
     private readonly ChatClientAgent _agent;
 
-    public ResearcherAgent(IChatClient llm, ChatOptions chatOptions, AIFunction tavilyTool)
+    // Emits a span per research turn. Activated by the ActivityListener
+    // registered in Program.cs (or an OpenTelemetry TracerProvider).
+    private static readonly ActivitySource s_activitySource = new("BlogWriter.ResearcherAgent");
+
+    private readonly ILogger<ResearcherAgent> _logger;
+
+    public ResearcherAgent(IChatClient llm, ChatOptions chatOptions, AIFunction tavilyTool, ILogger<ResearcherAgent> logger)
     {
+        _logger = logger;
+
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
             // Name surfaces in OpenTelemetry traces and agent logs.
@@ -35,11 +45,16 @@ public class ResearcherAgent : IResearcherAgent
                 Tools = [tavilyTool],
             },
         });
+
+        _logger.LogInformation("ResearcherAgent initialized with Tavily tool: {ToolName}", tavilyTool.Name);
     }
 
     /// <summary>Execute research by letting the agent search and summarise.</summary>
     public async Task<string> InvokeAsync(string query)
     {
+        using Activity? activity = s_activitySource.StartActivity("Researcher.Invoke");
+        activity?.SetTag("blog.query", query);
+
         try
         {
             // A single agent run: the model may call tavily_search one or more
