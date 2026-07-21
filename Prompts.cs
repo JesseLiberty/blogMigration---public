@@ -62,7 +62,7 @@ Instructions:
 - If this is the first draft (no current draft), create a comprehensive post based on the findings
 - If there is a current draft and review notes, revise the draft to address all feedback
 - Use a professional tone
-- Make the post concise (aim for 250-500 words)
+- Aim for 1000 to 2000 words.
 
 Write the complete post.
 """;
@@ -82,6 +82,7 @@ Evaluate the draft based on:
 3. Value – Does the post offer real insights or lessons?
 4. Structure – Are paragraphs short?
 5. Tone – Is it authentic and professional?
+6. Size – Is the post between 1000 and 2000 words?
 
 Respond with one of:
 - If the draft is satisfactory (minor issues are okay): "APPROVED - [brief positive comment]"

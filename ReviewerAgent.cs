@@ -33,14 +33,9 @@ public class ReviewerAgent : IReviewerAgent
         string draft = state.Draft;
         int revisionNum = state.RevisionNumber;
 
-        if (draft.Trim().Length < 100)
-        {
-            return "APPROVED - Draft is minimal but acceptable.";
-        }
-
         if (revisionNum >= ResearchState.MaxRevisions)
         {
-            return "APPROVED - Maximum revisions reached. The report is satisfactory.";
+            return "Uh oh - Maximum revisions reached.";
         }
 
         // Per-turn input only — the evaluation criteria are on the agent.
