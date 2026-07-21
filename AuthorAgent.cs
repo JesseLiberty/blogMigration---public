@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace BlogWriter;
 
@@ -13,8 +15,16 @@ public class AuthorAgent : IAuthorAgent
 {
     private readonly ChatClientAgent _agent;
 
-    public AuthorAgent(IChatClient llm, ChatOptions chatOptions)
+    // Emits a span per draft creation/revision. Activated by the ActivityListener
+    // registered in Program.cs (or an OpenTelemetry TracerProvider).
+    private static readonly ActivitySource s_activitySource = new("BlogWriter.AuthorAgent");
+
+    private readonly ILogger<AuthorAgent> _logger;
+
+    public AuthorAgent(IChatClient llm, ChatOptions chatOptions, ILogger<AuthorAgent> logger)
     {
+        _logger = logger;
+
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
             Name = "Author",
@@ -25,10 +35,14 @@ public class AuthorAgent : IAuthorAgent
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
         });
+        _logger.LogInformation("AuthorAgent initialized.");
     }
 
     public async Task<string> InvokeAsync(ResearchState state)
     {
+        using Activity? activity = s_activitySource.StartActivity("Author.Invoke");
+        activity?.SetTag("blog.revision", state.RevisionNumber);
+
         List<string> research = state.ResearchFindings;
         string researchText = research.Count > 0 ? string.Join("\n\n", research) : "No research available.";
 

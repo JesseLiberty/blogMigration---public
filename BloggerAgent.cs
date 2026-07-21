@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace BlogWriter;
 
@@ -22,8 +24,16 @@ public class BloggerAgent : IBloggerAgent
     // generated schema regardless of naming policy.
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public BloggerAgent(IChatClient llm, ChatOptions chatOptions)
+    // Emits a span per Blogger decision. Activated by the ActivityListener
+    // registered in Program.cs (or an OpenTelemetry TracerProvider).
+    private static readonly ActivitySource s_activitySource = new("BlogWriter.BloggerAgent");
+
+    private readonly ILogger<BloggerAgent> _logger;
+
+    public BloggerAgent(IChatClient llm, ChatOptions chatOptions, ILogger<BloggerAgent> logger)
     {
+        _logger = logger;
+
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
             Name = "Blogger",
@@ -34,10 +44,14 @@ public class BloggerAgent : IBloggerAgent
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
         });
+        _logger.LogInformation("BloggerAgent initialized.");
     }
 
     public async Task<BloggerDecision> InvokeAsync(ResearchState state)
     {
+        using Activity? activity = s_activitySource.StartActivity("Blogger.Invoke");
+        activity?.SetTag("blog.revision", state.RevisionNumber);
+
         List<string> research = state.ResearchFindings;
         string researchText = research.Count > 0 ? string.Join("\n", research) : "No research yet.";
         int revision = state.RevisionNumber;
