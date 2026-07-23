@@ -119,6 +119,11 @@ public class BloggerAgent : IBloggerAgent
                 return decision;
             }
         }
+        catch (TokenCapExceededException)
+        {
+            // Budget breach is fatal — let it propagate so the app can shut down.
+            throw;
+        }
         catch (Exception e)
         {
             Console.WriteLine($"LLM decision error: {e.Message}");

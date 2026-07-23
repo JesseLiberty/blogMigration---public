@@ -36,7 +36,7 @@ public class ReviewerAgent : IReviewerAgent
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
         });
-        _logger.LogInformation("ReviewerAgent initialized.");   
+        _logger.LogInformation("ReviewerAgent initialized.");
     }
 
     public async Task<string> InvokeAsync(ResearchState state)
@@ -65,6 +65,11 @@ public class ReviewerAgent : IReviewerAgent
             AgentResponse response = await _agent.RunAsync(message);
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : "APPROVED";
+        }
+        catch (TokenCapExceededException)
+        {
+            // Budget breach is fatal — let it propagate so the app can shut down.
+            throw;
         }
         catch (Exception e)
         {
