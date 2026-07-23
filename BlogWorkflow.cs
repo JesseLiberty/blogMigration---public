@@ -66,6 +66,14 @@ public class BlogWorkflow(
 
                 case ExecutorFailedEvent failed:
                     Console.WriteLine($"[workflow] ✗ {failed.ExecutorId} failed: {(failed.Data as Exception)?.Message}");
+
+                    // A token-cap breach must abort the whole run, not just the
+                    // node. Re-throw it so it unwinds to the application entry point.
+                    if (failed.Data is Exception ex && FindTokenCap(ex) is { } capEx)
+                    {
+                        throw capEx;
+                    }
+
                     break;
 
                 case WorkflowOutputEvent { Data: ResearchState finalState }:
@@ -77,5 +85,35 @@ public class BlogWorkflow(
 
         // Fall back to the input state only if no output event was ever produced.
         return result ?? state;
+    }
+
+    // Walks the exception chain (including AggregateException children) looking
+    // for a token-cap breach, which the workflow runtime may have wrapped.
+    private static TokenCapExceededException? FindTokenCap(Exception? exception)
+    {
+        while (exception is not null)
+        {
+            if (exception is TokenCapExceededException capEx)
+            {
+                return capEx;
+            }
+
+            if (exception is AggregateException aggregate)
+            {
+                foreach (Exception inner in aggregate.InnerExceptions)
+                {
+                    if (FindTokenCap(inner) is { } found)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+            }
+
+            exception = exception.InnerException;
+        }
+
+        return null;
     }
 }

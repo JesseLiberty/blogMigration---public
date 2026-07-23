@@ -66,6 +66,11 @@ public class ResearcherAgent : IResearcherAgent
                 ? summary
                 : $"Research completed on: {query}. Key information has been gathered from web sources.";
         }
+        catch (TokenCapExceededException)
+        {
+            // Budget breach is fatal — let it propagate so the app can shut down.
+            throw;
+        }
         catch (Exception e)
         {
             Console.WriteLine($"Research error: {e.Message}");
@@ -87,6 +92,11 @@ public class ResearcherAgent : IResearcherAgent
             findings = await InvokeAsync(subTask);
             string preview = findings.Length > 100 ? findings[..100] : findings;
             Console.WriteLine($"Found: {preview}...");
+        }
+        catch (TokenCapExceededException)
+        {
+            // Budget breach is fatal — let it propagate so the app can shut down.
+            throw;
         }
         catch (Exception e)
         {

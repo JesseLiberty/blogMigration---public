@@ -64,6 +64,11 @@ public class AuthorAgent : IAuthorAgent
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : "Draft in progress...";
         }
+        catch (TokenCapExceededException)
+        {
+            // Budget breach is fatal — let it propagate so the app can shut down.
+            throw;
+        }
         catch (Exception e)
         {
             Console.WriteLine($"Author error: {e.Message}");

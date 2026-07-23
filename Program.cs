@@ -37,11 +37,17 @@ var openAIClient = new OpenAIClient(
 // Middleware is applied inner-to-outer, so function invocation wraps the raw
 // OpenAI client. (To add distributed tracing later, chain .UseOpenTelemetry()
 // here and register the source with a TracerProvider.)
+//
+// TokenCapChatClient is registered *after* function invocation, which makes it
+// the innermost wrapper around the raw client — so it observes every individual
+// model round-trip (including the extra calls tool invocation triggers) and
+// enforces a hard 1000-token budget for the whole process.
 IChatClient llm = openAIClient
     .GetChatClient(modelName)
     .AsIChatClient()
     .AsBuilder()
     .UseFunctionInvocation()
+    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens: 1000))
     .Build();
 
 var chatOptions = new ChatOptions
@@ -108,10 +114,19 @@ var initialState = new ResearchState
 };
 
 ResearchState result;
-using (Activity? runActivity = appActivitySource.StartActivity("BlogWriter.Run"))
+try
 {
+    using Activity? runActivity = appActivitySource.StartActivity("BlogWriter.Run");
     runActivity?.SetTag("blog.topic", topic);
     result = await app.RunAsync(initialState);
+}
+catch (TokenCapExceededException ex)
+{
+    // Graceful shutdown: the exception unwinds the call stack so every `using`
+    // (logger factory, HTTP clients, etc.) is disposed before we exit.
+    Console.Error.WriteLine($"{ex.Message} Exiting application.");
+    Environment.ExitCode = 1;
+    return;
 }
 
 Console.WriteLine("\n========== RESULTS ==========");
