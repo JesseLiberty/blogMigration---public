@@ -21,9 +21,13 @@ public class AuthorAgent : IAuthorAgent
 
     private readonly ILogger<AuthorAgent> _logger;
 
+    // Per-call output-token cap, applied on each RunAsync to bound cost.
+    private readonly int? _maxOutputTokens;
+
     public AuthorAgent(IChatClient llm, ChatOptions chatOptions, ILogger<AuthorAgent> logger)
     {
         _logger = logger;
+        _maxOutputTokens = chatOptions.MaxOutputTokens;
 
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
@@ -60,7 +64,12 @@ public class AuthorAgent : IAuthorAgent
 
         try
         {
-            AgentResponse response = await _agent.RunAsync(message);
+            // Cap per-call output tokens so a single turn can't blow the cost budget.
+            ChatClientAgentRunOptions runOptions = new(new ChatOptions
+            {
+                MaxOutputTokens = _maxOutputTokens,
+            });
+            AgentResponse response = await _agent.RunAsync(message, options: runOptions);
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : "Draft in progress...";
         }

@@ -25,9 +25,13 @@ public class ResearcherAgent : IResearcherAgent
 
     private readonly ILogger<ResearcherAgent> _logger;
 
+    // Per-call output-token cap, applied on each RunAsync to bound cost.
+    private readonly int? _maxOutputTokens;
+
     public ResearcherAgent(IChatClient llm, ChatOptions chatOptions, AIFunction tavilyTool, ILogger<ResearcherAgent> logger)
     {
         _logger = logger;
+        _maxOutputTokens = chatOptions.MaxOutputTokens;
 
         _agent = new ChatClientAgent(llm, new ChatClientAgentOptions
         {
@@ -59,7 +63,12 @@ public class ResearcherAgent : IResearcherAgent
         {
             // A single agent run: the model may call tavily_search one or more
             // times, read the results, and return a concise summary as its text.
-            AgentResponse response = await _agent.RunAsync(query);
+            // Cap per-call output tokens so a single turn can't blow the cost budget.
+            ChatClientAgentRunOptions runOptions = new(new ChatOptions
+            {
+                MaxOutputTokens = _maxOutputTokens,
+            });
+            AgentResponse response = await _agent.RunAsync(query, options: runOptions);
             string summary = response.Text;
 
             return !string.IsNullOrEmpty(summary)
