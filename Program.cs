@@ -41,13 +41,13 @@ var openAIClient = new OpenAIClient(
 // TokenCapChatClient is registered *after* function invocation, which makes it
 // the innermost wrapper around the raw client — so it observes every individual
 // model round-trip (including the extra calls tool invocation triggers) and
-// enforces a hard 1000-token budget for the whole process.
+// enforces a hard 10,000-token budget for the whole process.
 IChatClient llm = openAIClient
     .GetChatClient(modelName)
     .AsIChatClient()
     .AsBuilder()
     .UseFunctionInvocation()
-    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens: 1000))
+    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens: 10000))
     .Build();
 
 var chatOptions = new ChatOptions
