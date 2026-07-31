@@ -17,7 +17,7 @@ public class BloggerAgent : IBloggerAgent
 {
     // Built once and reused. Holds the static Blogger instructions; the volatile
     // state is passed per-turn as the user message.
-    private readonly ChatClientAgent _agent;
+    private readonly AIAgent _agent;
 
     // Web-style options are sufficient: BloggerDecision carries explicit
     // [JsonPropertyName] attributes (next_step / task_description) that drive the
@@ -47,7 +47,10 @@ public class BloggerAgent : IBloggerAgent
                 Temperature = chatOptions.Temperature,
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
-        });
+        })
+        .AsBuilder()
+        .UseOpenTelemetry(sourceName: "BlogWriter.Agents")
+        .Build();
         _logger.LogInformation("BloggerAgent initialized.");
     }
 

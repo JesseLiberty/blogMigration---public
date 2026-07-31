@@ -14,7 +14,7 @@ namespace BlogWriter;
 /// </summary>
 public class ReviewerAgent : IReviewerAgent
 {
-    private readonly ChatClientAgent _agent;
+    private readonly AIAgent _agent;
 
     // Emits a span per review. Activated by the ActivityListener registered in
     // Program.cs (or an OpenTelemetry TracerProvider).
@@ -39,7 +39,10 @@ public class ReviewerAgent : IReviewerAgent
                 Temperature = chatOptions.Temperature,
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
-        });
+        })
+        .AsBuilder()
+        .UseOpenTelemetry(sourceName: "BlogWriter.Agents")
+        .Build();
         _logger.LogInformation("ReviewerAgent initialized.");
     }
 
