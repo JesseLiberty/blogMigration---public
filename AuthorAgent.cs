@@ -13,7 +13,7 @@ namespace BlogWriter;
 /// </summary>
 public class AuthorAgent : IAuthorAgent
 {
-    private readonly ChatClientAgent _agent;
+    private readonly AIAgent _agent;
 
     // Emits a span per draft creation/revision. Activated by the ActivityListener
     // registered in Program.cs (or an OpenTelemetry TracerProvider).
@@ -38,7 +38,10 @@ public class AuthorAgent : IAuthorAgent
                 Temperature = chatOptions.Temperature,
                 MaxOutputTokens = chatOptions.MaxOutputTokens,
             },
-        });
+        })
+        .AsBuilder()
+        .UseOpenTelemetry(sourceName: "BlogWriter.Agents")
+        .Build();
         _logger.LogInformation("AuthorAgent initialized.");
     }
 

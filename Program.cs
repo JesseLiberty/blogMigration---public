@@ -35,8 +35,13 @@ var openAIClient = new OpenAIClient(
 // calls the model requests — without it, attaching the Tavily tool to the
 // Researcher agent would let the model ask for a search but nothing would run it.
 // Middleware is applied inner-to-outer, so function invocation wraps the raw
-// OpenAI client. (To add distributed tracing later, chain .UseOpenTelemetry()
-// here and register the source with a TracerProvider.)
+// OpenAI client.
+//
+// UseOpenTelemetry() emits a GenAI span per model round-trip (model name, token
+// usage, tool calls). Its source is named "BlogWriter.ChatClient" so the
+// ActivityListener registered below (which listens to every "BlogWriter.*"
+// source) captures it alongside the agent/workflow spans — no TracerProvider
+// or extra packages required.
 //
 // TokenCapChatClient is registered *after* function invocation, which makes it
 // the innermost wrapper around the raw client — so it observes every individual
@@ -47,6 +52,7 @@ IChatClient llm = openAIClient
     .AsIChatClient()
     .AsBuilder()
     .UseFunctionInvocation()
+    .UseOpenTelemetry(sourceName: "BlogWriter.ChatClient")
     .Use(inner => new TokenCapChatClient(inner, maxTotalTokens: 10000))
     .Build();
 
@@ -90,9 +96,10 @@ var reviewerAgent = new ReviewerAgent(llm, chatOptions, loggerFactory.CreateLogg
 var app = new BlogWorkflow(bloggerAgent, researcherAgent, authorAgent, reviewerAgent);
 
 // Distributed tracing: an ActivityListener activates every "BlogWriter.*"
-// ActivitySource in the app (agents + workflow) and writes span start/stop to
-// the console. Swap this listener for OpenTelemetry's TracerProvider (and chain
-// IChatClient.UseOpenTelemetry() above) to export the same spans instead.
+// ActivitySource in the app (agents, workflow, and the IChatClient's
+// "BlogWriter.ChatClient" GenAI spans) and writes span start/stop to the
+// console. Swap this listener for OpenTelemetry's TracerProvider to export the
+// same spans to a backend instead.
 var appActivitySource = new ActivitySource("BlogWriter.Program");
 
 ActivitySource.AddActivityListener(new ActivityListener

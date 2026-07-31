@@ -17,7 +17,7 @@ public class ResearcherAgent : IResearcherAgent
     // The agent is built once and reused for every research turn. It is stateless
     // across turns (no AgentSession is retained), which matches the original
     // per-call behaviour while gaining tool-calling for free.
-    private readonly ChatClientAgent _agent;
+    private readonly AIAgent _agent;
 
     // Emits a span per research turn. Activated by the ActivityListener
     // registered in Program.cs (or an OpenTelemetry TracerProvider).
@@ -48,7 +48,10 @@ public class ResearcherAgent : IResearcherAgent
                 // Attaching the tool lets the model call it autonomously.
                 Tools = [tavilyTool],
             },
-        });
+        })
+        .AsBuilder()
+        .UseOpenTelemetry(sourceName: "BlogWriter.Agents")
+        .Build();
 
         _logger.LogInformation("ResearcherAgent initialized with Tavily tool: {ToolName}", tavilyTool.Name);
     }
