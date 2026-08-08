@@ -50,6 +50,20 @@ public class ResearcherAgent : IResearcherAgent
             },
         })
         .AsBuilder()
+        // Function-invocation middleware: fires around every tool call the agent
+        // makes. We log each time the model invokes the Tavily search tool.
+        .Use(async (agent, context, next, cancellationToken) =>
+        {
+            if (context.Function.Name == tavilyTool.Name)
+            {
+                _logger.LogInformation(
+                    "Researcher invoking Tavily tool '{Tool}' with arguments {Arguments}",
+                    context.Function.Name,
+                    context.Arguments);
+            }
+
+            return await next(context, cancellationToken);
+        })
         .UseOpenTelemetry(sourceName: "BlogWriter.Agents")
         .Build();
 
