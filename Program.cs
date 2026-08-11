@@ -2,32 +2,34 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using BlogWriter;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 
-const string fileName = "config.json";
+// Secrets come from the .NET user-secrets store in development and from
+// environment variables in CI/production (env vars win on key collisions).
+IConfiguration config = new ConfigurationBuilder()
+    .AddUserSecrets<Program>()
+    .AddEnvironmentVariables()
+    .Build();
 
-using var stream = File.OpenRead(fileName);
-using var document = JsonDocument.Parse(stream);
-JsonElement config = document.RootElement;
+string GetRequired(string key) =>
+    config[key] ?? throw new InvalidOperationException(
+        $"Missing configuration value '{key}'. Set it with: dotnet user-secrets set \"{key}\" \"<value>\"");
 
-string? GetValue(string key) =>
-    config.TryGetProperty(key, out JsonElement value) ? value.GetString() : null;
-
-Environment.SetEnvironmentVariable("OPENAI_API_KEY", GetValue("API_KEY"));
-Environment.SetEnvironmentVariable("OPENAI_BASE_URL", GetValue("OPENAI_API_BASE"));
-Environment.SetEnvironmentVariable("TAVILY_API_KEY", GetValue("TAVILY_API_KEY"));
+string openAiApiKey = GetRequired("API_KEY");
+string openAiApiBase = GetRequired("OPENAI_API_BASE");
+string tavilyApiKey = GetRequired("TAVILY_API_KEY");
 
 string modelName = "gpt-4o-mini";
 
 var openAIClient = new OpenAIClient(
-    new ApiKeyCredential(Environment.GetEnvironmentVariable("OPENAI_API_KEY")!),
+    new ApiKeyCredential(openAiApiKey),
     new OpenAIClientOptions
     {
-        Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL")!)
+        Endpoint = new Uri(openAiApiBase)
     });
 
 // Build the IChatClient pipeline once and share it across all agents.
@@ -64,7 +66,7 @@ var chatOptions = new ChatOptions
 
 var tavilyHttpClient = new HttpClient { BaseAddress = new Uri("https://api.tavily.com/") };
 tavilyHttpClient.DefaultRequestHeaders.Authorization =
-    new AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("TAVILY_API_KEY"));
+    new AuthenticationHeaderValue("Bearer", tavilyApiKey);
 
 AIFunction tavilyTool = AIFunctionFactory.Create(
     async (string query) =>
