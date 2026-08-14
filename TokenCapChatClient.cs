@@ -53,6 +53,11 @@ public sealed class TokenCapChatClient(IChatClient innerClient, long maxTotalTok
             return;
         }
 
+        if (maxTotalTokens <= 0)
+        {
+            throw new InvalidOperationException("Token cap must be a positive number.");
+        }        
+
         long total = Interlocked.Add(ref _totalTokens, used);
         if (total > maxTotalTokens)
         {

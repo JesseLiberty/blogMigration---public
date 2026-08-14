@@ -56,7 +56,7 @@ public class ReviewerAgent : IReviewerAgent
 
         if (revisionNum >= ResearchState.MaxRevisions)
         {
-            return "Uh oh - Maximum revisions reached.";
+            return "APPROVED - Maximum revisions reached.";
         }
 
         // Per-turn input only — the evaluation criteria are on the agent.
@@ -76,7 +76,7 @@ public class ReviewerAgent : IReviewerAgent
             });
             AgentResponse response = await _agent.RunAsync(message, options: runOptions);
             string content = response.Text;
-            return !string.IsNullOrEmpty(content) ? content : "APPROVED";
+            return !string.IsNullOrEmpty(content) ? content : ManageError("No review content returned from the agent.");
         }
         catch (TokenCapExceededException)
         {
@@ -85,12 +85,17 @@ public class ReviewerAgent : IReviewerAgent
         }
         catch (Exception e)
         {
-            // Do NOT approve on failure — that would ship an unreviewed draft.
-            // Returning feedback (not "APPROVED") routes back to the author for
-            // another attempt; the revision cap still guarantees termination.
-            Console.WriteLine($"Review error: {e.Message}");
-            return "Review could not be completed due to a transient error. Please revise and resubmit the draft.";
+            return ManageError(e.Message);
         }
+    }
+
+    private string ManageError(string errorMessage)
+    {
+        // Do NOT approve on failure — that would ship an unreviewed draft.
+        // Returning feedback (not "APPROVED") routes back to the author for
+        // another attempt; the revision cap still guarantees termination.
+        Console.WriteLine($"Review error: {errorMessage}");
+        return "Review could not be completed due to a transient error. Please revise and resubmit the draft.";
     }
 
     /// <summary>Node that reviews the draft.</summary>
