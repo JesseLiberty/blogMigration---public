@@ -8,8 +8,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 
-// Secrets come from the .NET user-secrets store in development and from
-// environment variables in CI/production (env vars win on key collisions).
+// Secrets come from the .NET user-secrets store and from
+// environment variables (env vars win on key collisions).
 IConfiguration config = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
     .AddEnvironmentVariables()
@@ -36,8 +36,6 @@ var openAIClient = new OpenAIClient(
 // UseFunctionInvocation() adds the middleware that actually *executes* the tool
 // calls the model requests — without it, attaching the Tavily tool to the
 // Researcher agent would let the model ask for a search but nothing would run it.
-// Middleware is applied inner-to-outer, so function invocation wraps the raw
-// OpenAI client.
 //
 // UseOpenTelemetry() emits a GenAI span per model round-trip (model name, token
 // usage, tool calls). Its source is named "BlogWriter.ChatClient" so the
