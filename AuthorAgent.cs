@@ -45,7 +45,7 @@ public class AuthorAgent : IAuthorAgent
         _logger.LogInformation("AuthorAgent initialized.");
     }
 
-    public async Task<string> InvokeAsync(ResearchState state)
+    public async Task<string> InvokeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
         using Activity? activity = s_activitySource.StartActivity("Author.Invoke");
         activity?.SetTag("blog.revision", state.RevisionNumber);
@@ -72,7 +72,7 @@ public class AuthorAgent : IAuthorAgent
             {
                 MaxOutputTokens = _maxOutputTokens,
             });
-            AgentResponse response = await _agent.RunAsync(message, options: runOptions);
+            AgentResponse response = await _agent.RunAsync(message, options: runOptions, cancellationToken: cancellationToken);
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : "Draft in progress...";
         }
@@ -83,18 +83,18 @@ public class AuthorAgent : IAuthorAgent
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Author error: {e.Message}");
+            _logger.LogError(e, "Author agent failed to generate content.");
             return "Error generating draft. Please try again.";
         }
     }
 
     /// <summary>Author node that creates or revises draft.</summary>
-    public async Task<ResearchState> AuthorNodeAsync(ResearchState state)
+    public async Task<ResearchState> AuthorNodeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("\n>>>Author");
+        _logger.LogInformation("Author stage started.");
 
-        string draft = await InvokeAsync(state);
-        Console.WriteLine($"Draft created: {draft.Length} characters");
+        string draft = await InvokeAsync(state, cancellationToken);
+        _logger.LogInformation("Draft created: {Length} characters", draft.Length);
 
         state.Draft = draft;
         state.RevisionNumber += 1;

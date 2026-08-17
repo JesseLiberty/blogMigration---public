@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- BlogWriter.Tests is a separate project nested under this folder; exclude it from this project's default glob. -->
+    <Compile Remove="BlogWriter.Tests\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.10.0" />
     <PackageReference Include="Microsoft.Agents.AI.Workflows.Generators" Version="1.10.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -60,15 +60,10 @@ public sealed class TokenCapChatClient : DelegatingChatClient
             return;
         }
 
-        if (maxTotalTokens <= 0)
-        {
-            throw new InvalidOperationException("Token cap must be a positive number.");
-        }
-
         long total = Interlocked.Add(ref _totalTokens, used);
-        if (total > maxTotalTokens)
+        if (total > _maxTotalTokens)
         {
-            throw new TokenCapExceededException(total, maxTotalTokens);
+            throw new TokenCapExceededException(total, _maxTotalTokens);
         }
     }
 }
