@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.Logging;
 
 namespace BlogWriter;
 
@@ -15,13 +16,14 @@ public class BlogWorkflow(
     IBloggerAgent blogger,
     IResearcherAgent researcher,
     IAuthorAgent author,
-    IReviewerAgent reviewer) : IBlogWorkflow
+    IReviewerAgent reviewer,
+    ILogger<BlogWorkflow> logger) : IBlogWorkflow
 {
     // Emits the root span for a workflow run. Activated by the ActivityListener
     // registered in Program.cs (or an OpenTelemetry TracerProvider).
     private static readonly ActivitySource s_activitySource = new("BlogWriter.Workflow");
 
-    public async Task<ResearchState> RunAsync(ResearchState state)
+    public async Task<ResearchState> RunAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
         using Activity? activity = s_activitySource.StartActivity("Workflow.Run");
         activity?.SetTag("blog.topic", state.MainTask);
@@ -45,27 +47,26 @@ public class BlogWorkflow(
         // Stream execution instead of running to completion in one shot. The
         // topology is identical to before (proven terminating, MAF-Doctor grade A);
         // streaming simply surfaces each executor's lifecycle as it happens, giving
-        // live progress and replacing the scattered Console.WriteLine tracing that
-        // previously lived inside the node classes. The final ResearchState is
-        // captured from the WorkflowOutputEvent emitted by the reviewer.
-        StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, state);
+        // live progress. The final ResearchState is captured from the
+        // WorkflowOutputEvent emitted by the reviewer.
+        StreamingRun run = await InProcessExecution.RunStreamingAsync(workflow, state, cancellationToken: cancellationToken);
 
         ResearchState? result = null;
 
-        await foreach (WorkflowEvent evt in run.WatchStreamAsync())
+        await foreach (WorkflowEvent evt in run.WatchStreamAsync().WithCancellation(cancellationToken))
         {
             switch (evt)
             {
                 case ExecutorInvokedEvent invoked:
-                    Console.WriteLine($"[workflow] → {invoked.ExecutorId} started");
+                    logger.LogInformation("[workflow] -> {ExecutorId} started", invoked.ExecutorId);
                     break;
 
                 case ExecutorCompletedEvent completed:
-                    Console.WriteLine($"[workflow] ✓ {completed.ExecutorId} completed");
+                    logger.LogInformation("[workflow] {ExecutorId} completed", completed.ExecutorId);
                     break;
 
                 case ExecutorFailedEvent failed:
-                    Console.WriteLine($"[workflow] ✗ {failed.ExecutorId} failed: {(failed.Data as Exception)?.Message}");
+                    logger.LogError(failed.Data as Exception, "[workflow] {ExecutorId} failed", failed.ExecutorId);
 
                     // A token-cap breach must abort the whole run, not just the
                     // node. Re-throw it so it unwinds to the application entry point.

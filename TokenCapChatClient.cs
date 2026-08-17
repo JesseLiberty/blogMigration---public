@@ -10,10 +10,17 @@ namespace BlogWriter;
 /// application is terminated with an explanatory message rather than continuing
 /// to spend tokens.
 /// </summary>
-public sealed class TokenCapChatClient(IChatClient innerClient, long maxTotalTokens)
-    : DelegatingChatClient(innerClient)
+public sealed class TokenCapChatClient : DelegatingChatClient
 {
+    private readonly long _maxTotalTokens;
     private long _totalTokens;
+
+    public TokenCapChatClient(IChatClient innerClient, long maxTotalTokens) : base(innerClient)
+    {
+        _maxTotalTokens = maxTotalTokens > 0
+            ? maxTotalTokens
+            : throw new ArgumentOutOfRangeException(nameof(maxTotalTokens), maxTotalTokens, "Token cap must be a positive number.");
+    }
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -53,15 +60,10 @@ public sealed class TokenCapChatClient(IChatClient innerClient, long maxTotalTok
             return;
         }
 
-        if (maxTotalTokens <= 0)
-        {
-            throw new InvalidOperationException("Token cap must be a positive number.");
-        }        
-
         long total = Interlocked.Add(ref _totalTokens, used);
-        if (total > maxTotalTokens)
+        if (total > _maxTotalTokens)
         {
-            throw new TokenCapExceededException(total, maxTotalTokens);
+            throw new TokenCapExceededException(total, _maxTotalTokens);
         }
     }
 }

@@ -46,7 +46,7 @@ public class ReviewerAgent : IReviewerAgent
         _logger.LogInformation("ReviewerAgent initialized.");
     }
 
-    public async Task<string> InvokeAsync(ResearchState state)
+    public async Task<string> InvokeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
         using Activity? activity = s_activitySource.StartActivity("Reviewer.Invoke");
         activity?.SetTag("blog.revision", state.RevisionNumber);
@@ -74,7 +74,7 @@ public class ReviewerAgent : IReviewerAgent
             {
                 MaxOutputTokens = _maxOutputTokens,
             });
-            AgentResponse response = await _agent.RunAsync(message, options: runOptions);
+            AgentResponse response = await _agent.RunAsync(message, options: runOptions, cancellationToken: cancellationToken);
             string content = response.Text;
             return !string.IsNullOrEmpty(content) ? content : ManageError("No review content returned from the agent.");
         }
@@ -85,39 +85,45 @@ public class ReviewerAgent : IReviewerAgent
         }
         catch (Exception e)
         {
-            return ManageError(e.Message);
+            return ManageError(e.Message, e);
         }
     }
 
-    private string ManageError(string errorMessage)
+    private string ManageError(string reason, Exception? exception = null)
     {
         // Do NOT approve on failure — that would ship an unreviewed draft.
         // Returning feedback (not "APPROVED") routes back to the author for
         // another attempt; the revision cap still guarantees termination.
-        Console.WriteLine($"Review error: {errorMessage}");
+        if (exception is not null)
+        {
+            _logger.LogError(exception, "Review failed: {Reason}", reason);
+        }
+        else
+        {
+            _logger.LogWarning("Review could not be completed: {Reason}", reason);
+        }
+
         return "Review could not be completed due to a transient error. Please revise and resubmit the draft.";
     }
 
     /// <summary>Node that reviews the draft.</summary>
-    public async Task<ResearchState> ReviewerNodeAsync(ResearchState state)
+    public async Task<ResearchState> ReviewerNodeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("\n>>REVIEWER");
-
-        string review = await InvokeAsync(state);
+        string review = await InvokeAsync(state, cancellationToken);
         string preview = review.Length > 100 ? review[..100] : review;
-        Console.WriteLine($"Review: {preview}...");
+        _logger.LogInformation("Review: {Preview}...", preview);
 
-        bool isApproved = review.ToUpperInvariant().Contains("APPROVED");
+        bool isApproved = ResearchState.IsApproved(review);
 
         if (isApproved)
         {
-            Console.WriteLine("\u2713 Draft APPROVED");
-            state.ReviewNotes = "APPROVED";
+            _logger.LogInformation("Draft APPROVED");
+            state.ReviewNotes = ResearchState.ApprovedMarker;
             state.NextStep = "END";
         }
         else
         {
-            Console.WriteLine("\u2717 Revisions needed");
+            _logger.LogInformation("Revisions needed");
             state.ReviewNotes = review;
             state.NextStep = "author";
         }

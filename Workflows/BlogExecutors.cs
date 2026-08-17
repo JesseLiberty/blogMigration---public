@@ -10,24 +10,24 @@ namespace BlogWriter;
 internal sealed partial class BloggerExecutor(IBloggerAgent blogger) : Executor("Blogger")
 {
     [MessageHandler]
-    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
-        => await blogger.BloggerNodeAsync(state);
+    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context, CancellationToken cancellationToken)
+        => await blogger.BloggerNodeAsync(state, cancellationToken);
 }
 
 /// <summary>Gathers research findings.</summary>
 internal sealed partial class ResearcherExecutor(IResearcherAgent researcher) : Executor("Researcher")
 {
     [MessageHandler]
-    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
-        => await researcher.ResearchNodeAsync(state);
+    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context, CancellationToken cancellationToken)
+        => await researcher.ResearchNodeAsync(state, cancellationToken);
 }
 
 /// <summary>Writes or revises the draft (increments the revision counter).</summary>
 internal sealed partial class AuthorExecutor(IAuthorAgent author) : Executor("Author")
 {
     [MessageHandler]
-    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
-        => await author.AuthorNodeAsync(state);
+    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context, CancellationToken cancellationToken)
+        => await author.AuthorNodeAsync(state, cancellationToken);
 }
 
 /// <summary>
@@ -37,9 +37,9 @@ internal sealed partial class AuthorExecutor(IAuthorAgent author) : Executor("Au
 internal sealed partial class ReviewerExecutor(IReviewerAgent reviewer) : Executor("Reviewer")
 {
     [MessageHandler]
-    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context)
+    private async ValueTask<ResearchState> HandleAsync(ResearchState state, IWorkflowContext context, CancellationToken cancellationToken)
     {
-        state = await reviewer.ReviewerNodeAsync(state);
+        state = await reviewer.ReviewerNodeAsync(state, cancellationToken);
 
         if (!state.NeedsRevision)
         {

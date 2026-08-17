@@ -54,7 +54,7 @@ public class BloggerAgent : IBloggerAgent
         _logger.LogInformation("BloggerAgent initialized.");
     }
 
-    public async Task<BloggerDecision> InvokeAsync(ResearchState state)
+    public async Task<BloggerDecision> InvokeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
         using Activity? activity = s_activitySource.StartActivity("Blogger.Invoke");
         activity?.SetTag("blog.revision", state.RevisionNumber);
@@ -66,40 +66,40 @@ public class BloggerAgent : IBloggerAgent
         bool hasDraft = !string.IsNullOrWhiteSpace(state.Draft);
         string review = state.ReviewNotes;
 
-        if (review.ToUpperInvariant().Contains("APPROVED") && hasDraft)
+        if (ResearchState.IsApproved(review) && hasDraft)
         {
-            Console.WriteLine("Blogger: Draft approved, ending workflow");
+            _logger.LogInformation("Blogger: Draft approved, ending workflow");
             return new BloggerDecision("END", "Report approved and complete");
         }
 
         if (!hasResearch)
         {
-            Console.WriteLine("Blogger: No research yet, directing to researcher");
+            _logger.LogInformation("Blogger: No research yet, directing to researcher");
             return new BloggerDecision("researcher", $"Research the topic: {state.MainTask}");
         }
 
         if (hasResearch && !hasDraft)
         {
-            Console.WriteLine("Blogger: Have research, creating first draft");
+            _logger.LogInformation("Blogger: Have research, creating first draft");
             return new BloggerDecision("author", "Write the first draft based on research findings");
         }
 
         if (hasDraft && string.IsNullOrEmpty(review))
         {
-            Console.WriteLine("Blogger: Have draft, sending to reviewer");
+            _logger.LogInformation("Blogger: Have draft, sending to reviewer");
             return new BloggerDecision("reviewer", "Prepare draft for review");
         }
 
-        if (!string.IsNullOrEmpty(review) && !review.ToUpperInvariant().Contains("APPROVED") && revision < ResearchState.MaxRevisions)
+        if (!string.IsNullOrEmpty(review) && !ResearchState.IsApproved(review) && revision < ResearchState.MaxRevisions)
         {
-            Console.WriteLine($"Blogger: Revision {revision}, sending back to author");
+            _logger.LogInformation("Blogger: Revision {Revision}, sending back to author", revision);
             return new BloggerDecision("author", "Revise the draft based on review feedback");
         }
 
         // Max revisions reached
         if (revision >= ResearchState.MaxRevisions)
         {
-            Console.WriteLine("Blogger: Max revisions reached! Ending");
+            _logger.LogInformation("Blogger: Max revisions reached! Ending");
             return new BloggerDecision("END", "Maximum revisions reached! Finalizing report");
         }
 
@@ -123,7 +123,7 @@ public class BloggerAgent : IBloggerAgent
                 MaxOutputTokens = _maxOutputTokens,
             });
             AgentResponse<BloggerDecision> response =
-                await _agent.RunAsync<BloggerDecision>(stateSummary, options: runOptions, serializerOptions: _jsonOptions);
+                await _agent.RunAsync<BloggerDecision>(stateSummary, options: runOptions, serializerOptions: _jsonOptions, cancellationToken: cancellationToken);
 
             BloggerDecision decision = response.Result;
             if (decision is not null && !string.IsNullOrEmpty(decision.NextStep))
@@ -138,26 +138,23 @@ public class BloggerAgent : IBloggerAgent
         }
         catch (Exception e)
         {
-            Console.WriteLine($"LLM decision error: {e.Message}");
+            _logger.LogError(e, "Blogger LLM decision failed.");
         }
 
         // Final fallback - continue with author
-        Console.WriteLine("Blogger: Using final fallback - continuing with author");
+        _logger.LogInformation("Blogger: Using final fallback - continuing with author");
         return new BloggerDecision("author", "Continue with draft creation");
     }
 
     /// <summary>Blogger decides the next step.</summary>
-    public async Task<ResearchState> BloggerNodeAsync(ResearchState state)
+    public async Task<ResearchState> BloggerNodeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("\n>>>Blogger");
-
-        BloggerDecision decision = await InvokeAsync(state);
+        BloggerDecision decision = await InvokeAsync(state, cancellationToken);
 
         string nextStep = string.IsNullOrEmpty(decision.NextStep) ? "researcher" : decision.NextStep;
         string taskDesc = string.IsNullOrEmpty(decision.TaskDescription) ? "Continue work" : decision.TaskDescription;
 
-        Console.WriteLine($"Decision: {nextStep}");
-        Console.WriteLine($"Task: {taskDesc}");
+        _logger.LogInformation("Blogger decision: {NextStep}, Task: {TaskDescription}", nextStep, taskDesc);
 
         state.NextStep = nextStep;
         state.CurrentSubTask = taskDesc;

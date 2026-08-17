@@ -23,13 +23,19 @@ string openAiApiKey = GetRequired("API_KEY");
 string openAiApiBase = GetRequired("OPENAI_API_BASE");
 string tavilyApiKey = GetRequired("TAVILY_API_KEY");
 
-string modelName = "gpt-4o-mini";
+// Overridable via user-secrets/env vars; these defaults match the original behaviour.
+string modelName = config["MODEL_NAME"] ?? "gpt-4o-mini";
+int maxOutputTokens = int.TryParse(config["MAX_OUTPUT_TOKENS"], out int configuredMaxOutputTokens) ? configuredMaxOutputTokens : 4096;
+long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 10000;
 
 var openAIClient = new OpenAIClient(
     new ApiKeyCredential(openAiApiKey),
     new OpenAIClientOptions
     {
-        Endpoint = new Uri(openAiApiBase)
+        Endpoint = new Uri(openAiApiBase),
+        // The SDK's default RetryPolicy still applies on top of this; this only
+        // bounds how long a single network attempt can hang before it retries/fails.
+        NetworkTimeout = TimeSpan.FromSeconds(60),
     });
 
 // Build the IChatClient pipeline once and share it across all agents.
@@ -46,28 +52,48 @@ var openAIClient = new OpenAIClient(
 // TokenCapChatClient is registered *after* function invocation, which makes it
 // the innermost wrapper around the raw client — so it observes every individual
 // model round-trip (including the extra calls tool invocation triggers) and
-// enforces a hard 10,000-token budget for the whole process.
+// enforces a hard cumulative-token budget for the whole process.
 IChatClient llm = openAIClient
     .GetChatClient(modelName)
     .AsIChatClient()
     .AsBuilder()
     .UseFunctionInvocation()
     .UseOpenTelemetry(sourceName: "BlogWriter.ChatClient")
-    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens: 10000))
+    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens))
     .Build();
 
 var chatOptions = new ChatOptions
 {
     Temperature = 0,
-    MaxOutputTokens = 4096
+    MaxOutputTokens = maxOutputTokens
 };
 
-var tavilyHttpClient = new HttpClient { BaseAddress = new Uri("https://api.tavily.com/") };
+var tavilyHttpClient = new HttpClient { BaseAddress = new Uri("https://api.tavily.com/"), Timeout = TimeSpan.FromSeconds(20) };
 tavilyHttpClient.DefaultRequestHeaders.Authorization =
     new AuthenticationHeaderValue("Bearer", tavilyApiKey);
 
+// Small manual retry: transient network errors/timeouts get up to 2 retries
+// with exponential backoff before the failure surfaces to the calling agent.
+async Task<HttpResponseMessage> PostWithRetryAsync(string requestUri, object body, CancellationToken cancellationToken)
+{
+    const int maxAttempts = 3;
+    for (int attempt = 1; ; attempt++)
+    {
+        try
+        {
+            HttpResponseMessage response = await tavilyHttpClient.PostAsJsonAsync(requestUri, body, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+        catch (Exception ex) when (attempt < maxAttempts && ex is HttpRequestException or TaskCanceledException)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+        }
+    }
+}
+
 AIFunction tavilyTool = AIFunctionFactory.Create(
-    async (string query) =>
+    async (string query, CancellationToken cancellationToken) =>
     {
         var request = new
         {
@@ -79,9 +105,8 @@ AIFunction tavilyTool = AIFunctionFactory.Create(
             search_depth = "basic"
         };
 
-        using HttpResponseMessage response = await tavilyHttpClient.PostAsJsonAsync("search", request);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync();
+        using HttpResponseMessage response = await PostWithRetryAsync("search", request, cancellationToken);
+        return await response.Content.ReadAsStringAsync(cancellationToken);
     },
     name: "tavily_search",
     description: "A search engine optimized for comprehensive, accurate, and trusted results.");
@@ -93,7 +118,7 @@ var bloggerAgent = new BloggerAgent(llm, chatOptions, loggerFactory.CreateLogger
 var researcherAgent = new ResearcherAgent(llm, chatOptions, tavilyTool, loggerFactory.CreateLogger<ResearcherAgent>());
 var authorAgent = new AuthorAgent(llm, chatOptions, loggerFactory.CreateLogger<AuthorAgent>());
 var reviewerAgent = new ReviewerAgent(llm, chatOptions, loggerFactory.CreateLogger<ReviewerAgent>());
-var app = new BlogWorkflow(bloggerAgent, researcherAgent, authorAgent, reviewerAgent);
+var app = new BlogWorkflow(bloggerAgent, researcherAgent, authorAgent, reviewerAgent, loggerFactory.CreateLogger<BlogWorkflow>());
 
 // Distributed tracing: an ActivityListener activates every "BlogWriter.*"
 // ActivitySource in the app (agents, workflow, and the IChatClient's
@@ -120,18 +145,33 @@ var initialState = new ResearchState
     MainTask = topic
 };
 
+// Ctrl+C requests a graceful cancellation of the in-flight run instead of an
+// abrupt process kill.
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cts.Cancel();
+};
+
 ResearchState result;
 try
 {
     using Activity? runActivity = appActivitySource.StartActivity("BlogWriter.Run");
     runActivity?.SetTag("blog.topic", topic);
-    result = await app.RunAsync(initialState);
+    result = await app.RunAsync(initialState, cts.Token);
 }
 catch (TokenCapExceededException ex)
 {
     // Graceful shutdown: the exception unwinds the call stack so every `using`
     // (logger factory, HTTP clients, etc.) is disposed before we exit.
     Console.Error.WriteLine($"{ex.Message} Exiting application.");
+    Environment.ExitCode = 1;
+    return;
+}
+catch (OperationCanceledException)
+{
+    Console.Error.WriteLine("Run cancelled. Exiting application.");
     Environment.ExitCode = 1;
     return;
 }
