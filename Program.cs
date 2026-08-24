@@ -53,13 +53,14 @@ var openAIClient = new OpenAIClient(
 // the innermost wrapper around the raw client — so it observes every individual
 // model round-trip (including the extra calls tool invocation triggers) and
 // enforces a hard cumulative-token budget for the whole process.
+TokenCapChatClient? tokenCapChatClient = null;
 IChatClient llm = openAIClient
     .GetChatClient(modelName)
     .AsIChatClient()
     .AsBuilder()
     .UseFunctionInvocation()
     .UseOpenTelemetry(sourceName: "BlogWriter.ChatClient")
-    .Use(inner => new TokenCapChatClient(inner, maxTotalTokens))
+    .Use(inner => tokenCapChatClient = new TokenCapChatClient(inner, maxTotalTokens))
     .Build();
 
 var chatOptions = new ChatOptions
@@ -189,4 +190,15 @@ Console.WriteLine($"\nDraft:\n{result.Draft}");
 Console.WriteLine($"\nReview Notes: {result.ReviewNotes}");
 Console.WriteLine($"Revision Number: {result.RevisionNumber}");
 Console.WriteLine("=============================");
+
+if (tokenCapChatClient is not null)
+{
+    TokenUsageSnapshot usage = tokenCapChatClient.UsageSnapshot;
+    Console.WriteLine("\n========== TOKEN USAGE ==========");
+    Console.WriteLine($"Input tokens:     {usage.InputTokens}");
+    Console.WriteLine($"Output tokens:    {usage.OutputTokens}");
+    Console.WriteLine($"Reasoning tokens: {usage.ReasoningTokens}");
+    Console.WriteLine($"Total tokens:     {usage.TotalTokens}");
+    Console.WriteLine("==================================");
+}
 

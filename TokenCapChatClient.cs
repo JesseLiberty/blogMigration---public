@@ -12,8 +12,15 @@ namespace BlogWriter;
 /// </summary>
 public sealed class TokenCapChatClient : DelegatingChatClient
 {
+    // Key used by the OpenAI connector to report reasoning tokens inside
+    // UsageDetails.AdditionalCounts (there is no dedicated top-level property).
+    private const string ReasoningTokenCountKey = "OutputTokenDetails.ReasoningTokenCount";
+
     private readonly long _maxTotalTokens;
     private long _totalTokens;
+    private long _inputTokens;
+    private long _outputTokens;
+    private long _reasoningTokens;
 
     public TokenCapChatClient(IChatClient innerClient, long maxTotalTokens) : base(innerClient)
     {
@@ -21,6 +28,13 @@ public sealed class TokenCapChatClient : DelegatingChatClient
             ? maxTotalTokens
             : throw new ArgumentOutOfRangeException(nameof(maxTotalTokens), maxTotalTokens, "Token cap must be a positive number.");
     }
+
+    /// <summary>Cumulative token usage observed across every model round-trip so far.</summary>
+    public TokenUsageSnapshot UsageSnapshot => new(
+        Interlocked.Read(ref _inputTokens),
+        Interlocked.Read(ref _outputTokens),
+        Interlocked.Read(ref _reasoningTokens),
+        Interlocked.Read(ref _totalTokens));
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -54,7 +68,20 @@ public sealed class TokenCapChatClient : DelegatingChatClient
 
     private void Track(UsageDetails? usage)
     {
-        long used = usage?.TotalTokenCount ?? 0;
+        if (usage is null)
+        {
+            return;
+        }
+
+        Interlocked.Add(ref _inputTokens, usage.InputTokenCount ?? 0);
+        Interlocked.Add(ref _outputTokens, usage.OutputTokenCount ?? 0);
+        if (usage.AdditionalCounts is { } additionalCounts &&
+            additionalCounts.TryGetValue(ReasoningTokenCountKey, out long reasoningTokens))
+        {
+            Interlocked.Add(ref _reasoningTokens, reasoningTokens);
+        }
+
+        long used = usage.TotalTokenCount ?? 0;
         if (used == 0)
         {
             return;
@@ -67,6 +94,9 @@ public sealed class TokenCapChatClient : DelegatingChatClient
         }
     }
 }
+
+/// <summary>Point-in-time totals of tokens consumed across all model round-trips.</summary>
+public readonly record struct TokenUsageSnapshot(long InputTokens, long OutputTokens, long ReasoningTokens, long TotalTokens);
 
 /// <summary>
 /// Thrown when cumulative model token usage exceeds the configured cap. Callers
