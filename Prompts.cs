@@ -24,7 +24,7 @@ Decision Rules:
 - If research exists but no draft, choose "author"
 - If a draft exists and the reviewer said "APPROVED", choose "END"
 - If the draft needs revision, choose "author"
-- If revision_number >= 4, choose "END"
+- If revision_number >= 2, choose "END"
 
 Return the next step and a brief task description.
 """;
