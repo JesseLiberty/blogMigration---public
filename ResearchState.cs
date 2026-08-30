@@ -4,7 +4,7 @@ namespace BlogWriter;
 public class ResearchState
 {
     /// <summary>Hard upper bound on author/review revision cycles. Guarantees the workflow terminates.</summary>
-    public const int MaxRevisions = 4;
+    public const int MaxRevisions = 2;
 
     /// <summary>The single source-of-truth marker written to <see cref="ReviewNotes"/> on approval.</summary>
     public const string ApprovedMarker = "APPROVED";

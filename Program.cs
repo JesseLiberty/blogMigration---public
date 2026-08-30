@@ -26,7 +26,7 @@ string tavilyApiKey = GetRequired("TAVILY_API_KEY");
 // Overridable via user-secrets/env vars; these defaults match the original behaviour.
 string modelName = config["MODEL_NAME"] ?? "gpt-5-mini";
 int maxOutputTokens = int.TryParse(config["MAX_OUTPUT_TOKENS"], out int configuredMaxOutputTokens) ? configuredMaxOutputTokens : 4096;
-long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 20000;
+long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 40000;
 if (!Uri.TryCreate(openAiApiBase, UriKind.Absolute, out var uri))
 {
     Console.WriteLine($"Invalid URI: '{openAiApiBase}'");
