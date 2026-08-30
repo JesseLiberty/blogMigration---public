@@ -11,8 +11,8 @@ using OpenAI;
 // Secrets come from the .NET user-secrets store and from
 // environment variables (env vars win on key collisions).
 IConfiguration config = new ConfigurationBuilder()
-    .AddUserSecrets<Program>()
     .AddEnvironmentVariables()
+    .AddUserSecrets<Program>()
     .Build();
 
 string GetRequired(string key) =>
@@ -20,14 +20,18 @@ string GetRequired(string key) =>
         $"Missing configuration value '{key}'. Set it with: dotnet user-secrets set \"{key}\" \"<value>\"");
 
 string openAiApiKey = GetRequired("API_KEY");
-string openAiApiBase = GetRequired("OPENAI_API_BASE");
+string openAiApiBase = GetRequired("OPENAI_BASE_URL");
 string tavilyApiKey = GetRequired("TAVILY_API_KEY");
 
 // Overridable via user-secrets/env vars; these defaults match the original behaviour.
-string modelName = config["MODEL_NAME"] ?? "gpt-4o-mini";
+string modelName = config["MODEL_NAME"] ?? "gpt-5-mini";
 int maxOutputTokens = int.TryParse(config["MAX_OUTPUT_TOKENS"], out int configuredMaxOutputTokens) ? configuredMaxOutputTokens : 4096;
-long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 10000;
-
+long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 20000;
+if (!Uri.TryCreate(openAiApiBase, UriKind.Absolute, out var uri))
+{
+    Console.WriteLine($"Invalid URI: '{openAiApiBase}'");
+    throw new InvalidOperationException($"Invalid URI: '{openAiApiBase}'");
+}
 var openAIClient = new OpenAIClient(
     new ApiKeyCredential(openAiApiKey),
     new OpenAIClientOptions
@@ -65,7 +69,6 @@ IChatClient llm = openAIClient
 
 var chatOptions = new ChatOptions
 {
-    Temperature = 0,
     MaxOutputTokens = maxOutputTokens
 };
 
