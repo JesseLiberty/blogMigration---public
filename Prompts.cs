@@ -63,7 +63,7 @@ Instructions:
 - If there is a current draft and review notes, revise the draft to address all feedback
 - Use a professional tone
 
-- Aim for 500 to 1000 words.
+- Aim for 1000 to 2000 words.
 
 Write the complete post.
 """;
@@ -83,7 +83,7 @@ Evaluate the draft based on:
 3. Value – Does the post offer real insights or lessons?
 4. Structure – Are paragraphs short?
 5. Tone – Is it authentic and professional?
-6. Size – Is the post between 500 and 1000 words?
+6. Size – Is the post between 1000 and 2000 words?
 
 
 Respond with one of:
