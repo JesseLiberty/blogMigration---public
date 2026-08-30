@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using OpenAI;
 
 // Secrets come from the .NET user-secrets store and from
-// environment variables (env vars win on key collisions).
+// environment variables (secrets win on key collisions).
 IConfiguration config = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .AddUserSecrets<Program>()
@@ -29,7 +29,6 @@ int maxOutputTokens = int.TryParse(config["MAX_OUTPUT_TOKENS"], out int configur
 long maxTotalTokens = long.TryParse(config["MAX_TOTAL_TOKENS"], out long configuredMaxTotalTokens) ? configuredMaxTotalTokens : 40000;
 if (!Uri.TryCreate(openAiApiBase, UriKind.Absolute, out var uri))
 {
-    Console.WriteLine($"Invalid URI: '{openAiApiBase}'");
     throw new InvalidOperationException($"Invalid URI: '{openAiApiBase}'");
 }
 var openAIClient = new OpenAIClient(
@@ -69,6 +68,7 @@ IChatClient llm = openAIClient
 
 var chatOptions = new ChatOptions
 {
+    Temperature = 0,
     MaxOutputTokens = maxOutputTokens
 };
 
