@@ -52,16 +52,12 @@ public class ReviewerAgent : IReviewerAgent
         activity?.SetTag("blog.revision", state.RevisionNumber);
 
         string draft = state.Draft;
-        int revisionNum = state.RevisionNumber;
-
-        if (revisionNum >= ResearchState.MaxRevisions)
-        {
-            return "APPROVED - Maximum revisions reached.";
-        }
 
         // Per-turn input only — the evaluation criteria are on the agent.
         string message = $"""
             Main Task: {state.MainTask}
+
+            Target Word Count: {state.MinWords} to {state.MaxWords} words
 
             Draft to Review:
             {draft}

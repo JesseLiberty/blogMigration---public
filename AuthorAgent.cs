@@ -45,7 +45,7 @@ public class AuthorAgent : IAuthorAgent
         _logger.LogInformation("AuthorAgent initialized.");
     }
 
-    public async Task<string> InvokeAsync(ResearchState state, CancellationToken cancellationToken = default)
+    public async Task<string?> InvokeAsync(ResearchState state, CancellationToken cancellationToken = default)
     {
         using Activity? activity = s_activitySource.StartActivity("Author.Invoke");
         activity?.SetTag("blog.revision", state.RevisionNumber);
@@ -63,6 +63,8 @@ public class AuthorAgent : IAuthorAgent
             Current Draft: {(string.IsNullOrEmpty(state.Draft) ? "(none — write the first draft)" : state.Draft)}
 
             Review Notes: {(string.IsNullOrEmpty(state.ReviewNotes) ? "(none)" : state.ReviewNotes)}
+
+            Target Word Count: {state.MinWords} to {state.MaxWords} words
             """;
 
         try
@@ -74,7 +76,13 @@ public class AuthorAgent : IAuthorAgent
             });
             AgentResponse response = await _agent.RunAsync(message, options: runOptions, cancellationToken: cancellationToken);
             string content = response.Text;
-            return !string.IsNullOrEmpty(content) ? content : "Draft in progress...";
+            if (!string.IsNullOrEmpty(content))
+            {
+                return content;
+            }
+
+            _logger.LogWarning("Author agent returned no content for revision {Revision}.", state.RevisionNumber);
+            return null;
         }
         catch (TokenCapExceededException)
         {
@@ -84,7 +92,7 @@ public class AuthorAgent : IAuthorAgent
         catch (Exception e)
         {
             _logger.LogError(e, "Author agent failed to generate content.");
-            return "Error generating draft. Please try again.";
+            return null;
         }
     }
 
@@ -93,10 +101,20 @@ public class AuthorAgent : IAuthorAgent
     {
         _logger.LogInformation("Author stage started.");
 
-        string draft = await InvokeAsync(state, cancellationToken);
-        _logger.LogInformation("Draft created: {Length} characters", draft.Length);
+        string? draft = await InvokeAsync(state, cancellationToken);
 
-        state.Draft = draft;
+        if (string.IsNullOrEmpty(draft))
+        {
+            // Keep whatever draft already exists rather than clobbering it with a
+            // placeholder — an empty/failed generation shouldn't erase real content.
+            _logger.LogWarning("Author agent produced no draft; keeping the previous draft (if any).");
+        }
+        else
+        {
+            state.Draft = draft;
+            _logger.LogInformation("Draft created: {Length} characters", draft.Length);
+        }
+
         state.RevisionNumber += 1;
         return state;
     }

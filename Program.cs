@@ -68,7 +68,7 @@ IChatClient llm = openAIClient
 
 var chatOptions = new ChatOptions
 {
-    Temperature = 0,
+    Temperature = 1,
     MaxOutputTokens = maxOutputTokens
 };
 
@@ -143,10 +143,44 @@ ActivitySource.AddActivityListener(new ActivityListener
 Console.Write("Enter your topic: ");
 string topic = Console.ReadLine() ?? string.Empty;
 
+int minWords = ReadWordCount(
+    $"Enter minimum word count [{ResearchState.DefaultMinWords}]: ",
+    ResearchState.DefaultMinWords);
+int maxWords = ReadWordCount(
+    $"Enter maximum word count [{ResearchState.DefaultMaxWords}]: ",
+    ResearchState.DefaultMaxWords,
+    minimum: minWords);
+
+// Prompts for a positive word count, re-asking until a valid value (or blank
+// for the default) is entered. `minimum`, when set, enforces max >= min.
+int ReadWordCount(string prompt, int defaultValue, int? minimum = null)
+{
+    while (true)
+    {
+        Console.Write(prompt);
+        string? input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return defaultValue;
+        }
+
+        if (int.TryParse(input, out int value) && value > 0 && (minimum is null || value >= minimum))
+        {
+            return value;
+        }
+
+        Console.WriteLine(minimum is null
+            ? "Please enter a positive whole number."
+            : $"Please enter a whole number greater than or equal to {minimum}.");
+    }
+}
+
 // Run the workflow for the entered topic
 var initialState = new ResearchState
 {
-    MainTask = topic
+    MainTask = topic,
+    MinWords = minWords,
+    MaxWords = maxWords
 };
 
 // Ctrl+C requests a graceful cancellation of the in-flight run instead of an
@@ -192,6 +226,12 @@ foreach (string finding in result.ResearchFindings)
 Console.WriteLine($"\nDraft:\n{result.Draft}");
 Console.WriteLine($"\nReview Notes: {result.ReviewNotes}");
 Console.WriteLine($"Revision Number: {result.RevisionNumber}");
+if (result.RevisionNumber >= ResearchState.MaxRevisions)
+{
+    // The revision cap terminates the loop even if the reviewer never approved —
+    // call that out so the draft above isn't mistaken for a reviewer-approved one.
+    Console.WriteLine("Note: Maximum revision limit reached; draft above printed as-is.");
+}
 Console.WriteLine("=============================");
 
 if (tokenCapChatClient is not null)

@@ -49,33 +49,33 @@ Call the search tool as needed, then summarize your findings concisely.
 """;
 
     /// <summary>
-    /// Author system prompt. The task, research findings, current draft and review
-    /// notes are supplied as the user message each turn.
+    /// Author system prompt. The task, research findings, current draft, review
+    /// notes, and target word count are supplied as the user message each turn.
     /// </summary>
     public const string AuthorInstructions = """
 You are a professional blogger.
 
 The user message contains the main task, the research findings, the current
-draft (if any) and any reviewer notes.
+draft (if any), any reviewer notes, and the target word count range.
 
 Instructions:
 - If this is the first draft (no current draft), create a comprehensive post based on the findings
 - If there is a current draft and review notes, revise the draft to address all feedback
 - Use a professional tone
-
-- Aim for 1000 to 2000 words.
+- Aim for the target word count range given in the user message.
 
 Write the complete post.
 """;
 
     /// <summary>
-    /// Reviewer system prompt. The task and the draft to review are supplied as the
-    /// user message.
+    /// Reviewer system prompt. The task, the target word count range, and the draft
+    /// to review are supplied as the user message.
     /// </summary>
     public const string ReviewerInstructions = """
 You are a reviewer evaluating content for a blog post.
 
-The user message contains the main task and the draft to review.
+The user message contains the main task, the target word count range, and the
+draft to review.
 
 Evaluate the draft based on:
 1. Hook Strength – Does the opening grab attention?
@@ -83,7 +83,7 @@ Evaluate the draft based on:
 3. Value – Does the post offer real insights or lessons?
 4. Structure – Are paragraphs short?
 5. Tone – Is it authentic and professional?
-6. Size – Is the post between 1000 and 2000 words?
+6. Size – Is the post within the target word count range given in the user message?
 
 
 Respond with one of:
