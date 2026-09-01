@@ -9,7 +9,19 @@ public class ResearchState
     /// <summary>The single source-of-truth marker written to <see cref="ReviewNotes"/> on approval.</summary>
     public const string ApprovedMarker = "APPROVED";
 
+    /// <summary>Default lower bound on the target word count for the blog post.</summary>
+    public const int DefaultMinWords = 1000;
+
+    /// <summary>Default upper bound on the target word count for the blog post.</summary>
+    public const int DefaultMaxWords = 2000;
+
     public string MainTask { get; set; } = "";
+
+    /// <summary>Minimum target word count for the draft. Used by the author and reviewer stages.</summary>
+    public int MinWords { get; set; } = DefaultMinWords;
+
+    /// <summary>Maximum target word count for the draft. Used by the author and reviewer stages.</summary>
+    public int MaxWords { get; set; } = DefaultMaxWords;
     public List<string> ResearchFindings { get; set; } = [];
     public string Draft { get; set; } = "";
     public string ReviewNotes { get; set; } = "";
