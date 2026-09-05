@@ -105,9 +105,20 @@ public class AuthorAgent : IAuthorAgent
 
         if (string.IsNullOrEmpty(draft))
         {
-            // Keep whatever draft already exists rather than clobbering it with a
-            // placeholder — an empty/failed generation shouldn't erase real content.
-            _logger.LogWarning("Author agent produced no draft; keeping the previous draft (if any).");
+            if (string.IsNullOrEmpty(state.Draft))
+            {
+                // No prior draft to keep either — the workflow must always end with
+                // some draft, so assemble one from the research findings rather than
+                // sending the reviewer (and ultimately the user) an empty draft.
+                _logger.LogWarning("Author agent produced no draft and none exists yet; using a fallback draft built from research findings.");
+                state.Draft = BuildFallbackDraft(state);
+            }
+            else
+            {
+                // Keep whatever draft already exists rather than clobbering it with a
+                // placeholder — an empty/failed generation shouldn't erase real content.
+                _logger.LogWarning("Author agent produced no draft; keeping the previous draft.");
+            }
         }
         else
         {
@@ -117,5 +128,22 @@ public class AuthorAgent : IAuthorAgent
 
         state.RevisionNumber += 1;
         return state;
+    }
+
+    // Last-resort content used only when the model never manages to produce a
+    // draft at all, so the workflow still always yields something reviewable.
+    private static string BuildFallbackDraft(ResearchState state)
+    {
+        string researchText = state.ResearchFindings.Count > 0
+            ? string.Join("\n\n", state.ResearchFindings)
+            : "No research findings were available.";
+
+        return $"""
+            # {state.MainTask}
+
+            _The author agent could not generate content for this topic; this fallback draft was assembled automatically from the raw research findings._
+
+            {researchText}
+            """;
     }
 }
