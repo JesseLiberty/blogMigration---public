@@ -223,16 +223,16 @@ foreach (string finding in result.ResearchFindings)
     Console.WriteLine($"- {finding}");
 }
 
-Console.WriteLine($"\nDraft:\n{result.Draft}");
-Console.WriteLine($"\nReview Notes: {result.ReviewNotes}");
-Console.WriteLine($"Revision Number: {result.RevisionNumber}");
+Console.WriteLine($"\n\n========== Draft ==========\n\n{result.Draft}");
+Console.WriteLine($"\n========== Review Notes ==========\n{result.ReviewNotes}");
+Console.WriteLine($"\n========== Revision Notes ==========\n{result.RevisionNumber}");
 if (result.RevisionNumber >= ResearchState.MaxRevisions)
 {
     // The revision cap terminates the loop even if the reviewer never approved —
     // call that out so the draft above isn't mistaken for a reviewer-approved one.
     Console.WriteLine("Note: Maximum revision limit reached; draft above printed as-is.");
 }
-Console.WriteLine("=============================");
+Console.WriteLine("\n=============================\n");
 
 if (tokenCapChatClient is not null)
 {
