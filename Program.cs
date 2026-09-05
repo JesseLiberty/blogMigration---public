@@ -6,6 +6,7 @@ using BlogWriter;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
 using OpenAI;
 
 // Secrets come from the .NET user-secrets store and from
@@ -115,11 +116,23 @@ AIFunction tavilyTool = AIFunctionFactory.Create(
     name: "tavily_search",
     description: "A search engine optimized for comprehensive, accurate, and trusted results.");
 
+// Microsoft Learn's remote MCP server exposes docs search/fetch tools the
+// Researcher can call alongside Tavily for authoritative Microsoft/Azure content.
+await using McpClient microsoftLearnMcp = await McpClient.CreateAsync(
+    new HttpClientTransport(new HttpClientTransportOptions
+    {
+        Endpoint = new Uri("https://learn.microsoft.com/api/mcp"),
+        Name = "microsoft-learn",
+    }));
+IList<McpClientTool> microsoftLearnTools = await microsoftLearnMcp.ListToolsAsync();
+
+List<AIFunction> researcherTools = [tavilyTool, .. microsoftLearnTools];
+
 // Creating a callable object
 using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 
 var bloggerAgent = new BloggerAgent(llm, chatOptions, loggerFactory.CreateLogger<BloggerAgent>());
-var researcherAgent = new ResearcherAgent(llm, chatOptions, tavilyTool, loggerFactory.CreateLogger<ResearcherAgent>());
+var researcherAgent = new ResearcherAgent(llm, chatOptions, researcherTools, loggerFactory.CreateLogger<ResearcherAgent>());
 var authorAgent = new AuthorAgent(llm, chatOptions, loggerFactory.CreateLogger<AuthorAgent>());
 var reviewerAgent = new ReviewerAgent(llm, chatOptions, loggerFactory.CreateLogger<ReviewerAgent>());
 var app = new BlogWorkflow(bloggerAgent, researcherAgent, authorAgent, reviewerAgent, loggerFactory.CreateLogger<BlogWorkflow>());
