@@ -8,6 +8,11 @@
         "MAF_DOCTOR_INIT_VERSION": "1.14.0",
         "MAF_DOCTOR_WORKSPACE_ROOTS": "C:\\Users\\jesseliberty\\ai\\.net\\blogWriter;E:\\ai\\.net\\blog\\blogMigration---public"
       }
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
     }
   }
 }
+
